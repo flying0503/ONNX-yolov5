@@ -65,7 +65,7 @@ class Detector
 public:
     Detector(Config &config);
     Detection detect(Mat &img);
-    void postProcess(Mat &img, Detection &detection,Colors&cl);
+    Mat postProcess(Mat &img, Detection &detection,Colors&cl);
     PadInfo letterbox(Mat &img, Size new_shape, Scalar color, bool _auto, bool scaleFill, bool scaleup, int stride);
 
 private:
@@ -75,5 +75,5 @@ private:
     bool _auto; // not scaled to inSize but   minimum rectangle ,https://github.com/ultralytics/yolov5/blob/master/utils/augmentations.py line 106
     vector<string> classNames;
     dnn::Net model;
-    void drawPredection(Mat &img, vector<Rect> &boxes, vector<float> &sc, vector<int> &clsIndexs, vector<int> &ind,Colors&cl);
+    void drawPredection(Mat &img, vector<Rect> &boxes, vector<float> &sc, vector<int> &clsIndexs, vector<int> &ind,Colors&cl,float x_factor,float y_factor);
 };

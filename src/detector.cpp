@@ -66,31 +66,32 @@ Detection Detector::detect(Mat &img)
     this->model.forward(outs, outLayerNames);
     return {padInfo, outs};
 }
-void Detector::postProcess(Mat &img, Detection &detection, Colors &cl)
+Mat Detector::postProcess(Mat &img, Detection &detection, Colors &cl)
 {
 
+    cv::Mat dst(img.rows*2,img.cols,CV_8UC3,cv::Scalar(0,0,0));
 
-//    cv::Mat dst(1000,1000,CV_8UC3,cv::Scalar(0,0,0));
+    cv::Mat imageRoi = dst(cv::Rect(0,img.rows/2,img.cols,img.rows));
 
-//    cv::Mat imageRoi = dst(cv::Rect(0,img.rows/2,img.cols,img.rows));
+    img.copyTo(imageRoi);
 
-//    img.copyTo(imageRoi);
+    cv::namedWindow("add",cv::WINDOW_NORMAL);
 
-//    imshow("add",dst);
+    imshow("add",dst);
 //    cv::waitKey(0);
     PadInfo padInfo = letterbox(img, this->inSize, Scalar(255, 255, 255), this->_auto, false, true, 32);
-    std::cout<<"\n===================================\n";
-    std::cout<<"out img size:"<<img.size<<std::endl;
-    std::cout<<"===================================\n";
 
     std::vector<Mat> outs = detection.detection;
-    float x_factor = img.cols / outs[0].size[1];
-    float y_factor = img.rows / outs[0].size[2];
 
     LOG_F(INFO, "Extract output mat from detection");
     Mat out(outs[0].size[1], outs[0].size[2], CV_32F, outs[0].ptr<float>());
 
-    std::vector<Rect> boxes;
+
+    float x_factor = static_cast<float>(dst.cols) / static_cast<float>(img.cols);
+    float y_factor = static_cast<float>(dst.rows) / static_cast<float>(img.rows);
+
+
+    std::vector<Rect> boxes,boxesH;
     std::vector<float> scores;
     std::vector<int> indices;
     std::vector<int> classIndexList;
@@ -102,24 +103,20 @@ void Detector::postProcess(Mat &img, Detection &detection, Colors &cl)
         float h = out.at<float>(r, 3);
         float sc = out.at<float>(r, 4);
 
-//        cx = cx*x_factor;
-//        cy = cy*y_factor;
-
-//        w = w * x_factor;
-//        h = h * x_factor;
-
         Mat confs = out.row(r).colRange(5, out.row(r).cols);
         confs *= sc;
         double minV, maxV;
         Point minI, maxI;
         minMaxLoc(confs, &minV, &maxV, &minI, &maxI);
         scores.push_back(maxV);
-        boxes.push_back(Rect(cx - w / 2, cy - h / 2, w, h));
+//        boxes.push_back(Rect((cx - w / 2)*x_factor, (cy - h / 2)*y_factor, w*x_factor, h*y_factor));
+        boxes.push_back(Rect((cx - w / 2), (cy - h / 2), w, h));
         indices.push_back(r);
         classIndexList.push_back(maxI.x);
     }
     LOG_F(INFO, "Do NMS in %d boxes", (int)boxes.size());
     dnn::NMSBoxes(boxes, scores, this->confThreshold, this->nmsThreshold, indices);
+
     LOG_F(INFO, "After NMS  %d boxes keeped", (int)indices.size());
     std::vector<int> clsIndexs;
     for (int i = 0; i < indices.size(); i++)
@@ -127,19 +124,30 @@ void Detector::postProcess(Mat &img, Detection &detection, Colors &cl)
         clsIndexs.push_back(classIndexList[indices[i]]);
     }
     LOG_F(INFO, "Draw boxes and labels in orign image");
-    drawPredection(img, boxes, scores, clsIndexs, indices, cl);
+    drawPredection(dst, boxes, scores, clsIndexs, indices, cl,x_factor,y_factor);
+
+    return dst;
 }
 
-void Detector::drawPredection(Mat &img, std::vector<Rect> &boxes, std::vector<float> &scores, std::vector<int> &clsIndexs, std::vector<int> &ind, Colors &cl)
+void Detector::drawPredection(Mat &img, std::vector<Rect> &boxes, std::vector<float> &scores, std::vector<int> &clsIndexs, std::vector<int> &ind, Colors &cl,float x_factor,float y_factor)
 {
     for (int i = 0; i < ind.size(); i++)
     {
         Rect rect = boxes[ind[i]];
+
+        float x,y,w,h;
+        x = (rect.x * x_factor);
+        y = (rect.y * y_factor);
+        w = (rect.width* x_factor);
+        h = (rect.height* y_factor);
+        Rect rectH = Rect(x,y,w,h);
+
+
         float score = scores[ind[i]];
         string name = this->classNames[clsIndexs[i]];
         int color_ind = clsIndexs[i] % 20;
         Scalar color = cl.palette[color_ind];
-        rectangle(img, rect, color);
+        rectangle(img, rectH, color);
         char s_text[80];
         sprintf(s_text, "%.2f", round(score * 1e3) / 1e3);
         string label = name + " " + s_text;
@@ -147,10 +155,8 @@ void Detector::drawPredection(Mat &img, std::vector<Rect> &boxes, std::vector<fl
         int baseLine = 0;
         Size textSize = getTextSize(label, FONT_HERSHEY_PLAIN, 0.7, 1, &baseLine);
         baseLine += 2;
-        rectangle(img, Rect(rect.x, rect.y - textSize.height, textSize.width + 1, textSize.height + 1), color, -1);
-        putText(img, label, Point(rect.x, rect.y), FONT_HERSHEY_PLAIN, 0.7, Scalar(255, 255, 255), 1);
-    }
+        rectangle(img, Rect(rectH.x, rectH.y - textSize.height, textSize.width + 1, textSize.height + 1), color, -1);
+        putText(img, label, Point(rectH.x, rectH.y), FONT_HERSHEY_PLAIN, 0.7, Scalar(255, 255, 255), 1);
 
-//    imshow("rst", img);
-//    waitKey(0);
+    }
 }

@@ -28,14 +28,14 @@ int main(int argc, char *argv[])
     Detection detection = detector.detect(img);
     LOG_F(INFO,"Detect process finished");
     Colors cl = Colors();
-    detector.postProcess(img, detection,cl);
+    cv::Mat dst = detector.postProcess(img, detection,cl);
 
-    cv::Mat dst = img.rowRange(160,480);
-    cv::resize(dst,dst,cv::Size(1000,500));
+    namedWindow("rst",cv::WINDOW_NORMAL);
     imshow("rst", dst);
     waitKey(0);
+
     LOG_F(INFO,"Post process done save image to assets/output.jpg");
-    imwrite("D:/FFOutput/output.jpg", img);
+//    imwrite("D:/FFOutput/output.jpg", img);
     cout << "detect Image And Save to assets/output.jpg" << endl;
     return 0;
 }
