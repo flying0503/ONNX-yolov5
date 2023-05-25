@@ -57,6 +57,7 @@ struct Config
     string classNamePath;
     Size size;
     bool _auto;
+    bool isCuda;
 };
 
 class Detector

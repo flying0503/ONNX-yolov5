@@ -1,5 +1,5 @@
-#include "detector.h"
-#include "loguru.hpp"
+#include "include/detector.h"
+#include "include/loguru.hpp"
 
 Detector::Detector(Config &config)
 {
@@ -11,8 +11,16 @@ Detector::Detector(Config &config)
         this->classNames.push_back(line);
     ifs.close();
     this->model = dnn::readNetFromONNX(config.weightPath);
-    this->model.setPreferableBackend(dnn::DNN_BACKEND_OPENCV);
-    this->model.setPreferableTarget(dnn::DNN_TARGET_CPU);
+    if(config.isCuda)
+    {
+        LOG_F(INFO,"Attempty to use CUDA\n");
+        this->model.setPreferableBackend(dnn::DNN_BACKEND_CUDA);
+        this->model.setPreferableTarget(dnn::DNN_TARGET_CUDA_FP16);
+    }else {
+        LOG_F(INFO,"Running on CPU\n");
+        this->model.setPreferableBackend(dnn::DNN_BACKEND_OPENCV);
+        this->model.setPreferableTarget(dnn::DNN_TARGET_CPU);
+    }
     this->inSize = config.size;
     this->_auto = config._auto;    
 }
@@ -61,8 +69,24 @@ Detection Detector::detect(Mat &img)
 void Detector::postProcess(Mat &img, Detection &detection, Colors &cl)
 {
 
-    PadInfo padInfo = letterbox(img, this->inSize, Scalar(114, 114, 114), this->_auto, false, true, 32);
+
+//    cv::Mat dst(1000,1000,CV_8UC3,cv::Scalar(0,0,0));
+
+//    cv::Mat imageRoi = dst(cv::Rect(0,img.rows/2,img.cols,img.rows));
+
+//    img.copyTo(imageRoi);
+
+//    imshow("add",dst);
+//    cv::waitKey(0);
+    PadInfo padInfo = letterbox(img, this->inSize, Scalar(255, 255, 255), this->_auto, false, true, 32);
+    std::cout<<"\n===================================\n";
+    std::cout<<"out img size:"<<img.size<<std::endl;
+    std::cout<<"===================================\n";
+
     std::vector<Mat> outs = detection.detection;
+    float x_factor = img.cols / outs[0].size[1];
+    float y_factor = img.rows / outs[0].size[2];
+
     LOG_F(INFO, "Extract output mat from detection");
     Mat out(outs[0].size[1], outs[0].size[2], CV_32F, outs[0].ptr<float>());
 
@@ -77,6 +101,13 @@ void Detector::postProcess(Mat &img, Detection &detection, Colors &cl)
         float w = out.at<float>(r, 2);
         float h = out.at<float>(r, 3);
         float sc = out.at<float>(r, 4);
+
+//        cx = cx*x_factor;
+//        cy = cy*y_factor;
+
+//        w = w * x_factor;
+//        h = h * x_factor;
+
         Mat confs = out.row(r).colRange(5, out.row(r).cols);
         confs *= sc;
         double minV, maxV;
@@ -119,6 +150,7 @@ void Detector::drawPredection(Mat &img, std::vector<Rect> &boxes, std::vector<fl
         rectangle(img, Rect(rect.x, rect.y - textSize.height, textSize.width + 1, textSize.height + 1), color, -1);
         putText(img, label, Point(rect.x, rect.y), FONT_HERSHEY_PLAIN, 0.7, Scalar(255, 255, 255), 1);
     }
-    imshow("rst", img);
-    waitKey(0);
+
+//    imshow("rst", img);
+//    waitKey(0);
 }

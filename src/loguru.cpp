@@ -20,7 +20,7 @@
 #pragma warning(disable:4365) // conversion from 'X' to 'Y', signed/unsigned mismatch
 #endif
 
-#include "loguru.hpp"
+#include "include/loguru.hpp"
 
 #ifndef LOGURU_HAS_BEEN_IMPLEMENTED
 #define LOGURU_HAS_BEEN_IMPLEMENTED
